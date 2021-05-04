@@ -1,0 +1,24 @@
+{
+  "files": {
+    "main.css": "/p2p-uno/static/css/main.8c8b27cf.chunk.css",
+    "main.js": "/p2p-uno/static/js/main.6100169d.chunk.js",
+    "main.js.map": "/p2p-uno/static/js/main.6100169d.chunk.js.map",
+    "runtime-main.js": "/p2p-uno/static/js/runtime-main.76239f1c.js",
+    "runtime-main.js.map": "/p2p-uno/static/js/runtime-main.76239f1c.js.map",
+    "static/js/2.1dda9cb7.chunk.js": "/p2p-uno/static/js/2.1dda9cb7.chunk.js",
+    "static/js/2.1dda9cb7.chunk.js.map": "/p2p-uno/static/js/2.1dda9cb7.chunk.js.map",
+    "static/js/3.043c16fa.chunk.js": "/p2p-uno/static/js/3.043c16fa.chunk.js",
+    "static/js/3.043c16fa.chunk.js.map": "/p2p-uno/static/js/3.043c16fa.chunk.js.map",
+    "index.html": "/p2p-uno/index.html",
+    "service-worker.js": "/p2p-uno/service-worker.js",
+    "service-worker.js.map": "/p2p-uno/service-worker.js.map",
+    "static/css/main.8c8b27cf.chunk.css.map": "/p2p-uno/static/css/main.8c8b27cf.chunk.css.map",
+    "static/js/2.1dda9cb7.chunk.js.LICENSE.txt": "/p2p-uno/static/js/2.1dda9cb7.chunk.js.LICENSE.txt"
+  },
+  "entrypoints": [
+    "static/js/runtime-main.76239f1c.js",
+    "static/js/2.1dda9cb7.chunk.js",
+    "static/css/main.8c8b27cf.chunk.css",
+    "static/js/main.6100169d.chunk.js"
+  ]
+}
