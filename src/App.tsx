@@ -46,6 +46,52 @@ function App() {
     console.log("Connections list got updated!", connections);
   }, [connections]);
 
+  useEffect(() => {
+    connections.forEach((conn) => {
+      conn.on("data", (data) => {
+        const msg: Message = recvMessage(data);
+        console.log("Got data", msg);
+        switch (msg.type) {
+          case "newpeer":
+            setPeers((p) => {
+              console.log(`Got new peer ${msg.peer}. Current`, p);
+              return [...p, msg.peer];
+            });
+            break;
+          case "peerlist":
+            setPeers(msg.peers);
+            break;
+          case "updategame":
+            if (isHost) {
+              setGame(msg.game);
+            } else {
+              setLocalGame(msg.game);
+            }
+            setReady(true);
+            break;
+          default:
+            break;
+        }
+      });
+
+      conn.on("open", () => {
+        console.log("Opened new conn!");
+        if (!isHost)
+          sendMessage(conn, {
+            type: "newpeer",
+            peer: name,
+          });
+      });
+    });
+
+    return () => {
+      connections.forEach((conn) => {
+        conn.off("data", (undefined as unknown) as Function);
+        conn.off("open", (undefined as unknown) as Function);
+      });
+    };
+  }, [connections, isHost, name, setGame]);
+
   return (
     <div className="App">
       <header className="App-header">
@@ -87,7 +133,7 @@ function App() {
               />
             </div>
             <hr />
-            {isHost && connections.length === 0 && (
+            {isHost && (
               <div>
                 <span>
                   Waiting for connections. Share your session ID: {sessionId}
@@ -109,40 +155,6 @@ function App() {
                         peer.on("connection", (conn) => {
                           console.log("Received connection!", conn);
                           setConnections((cs) => [...cs, conn]);
-
-                          conn.on("data", (data) => {
-                            const msg: Message = recvMessage(data);
-                            console.log("Got data", msg);
-                            switch (msg.type) {
-                              case "newpeer":
-                                setPeers((p) => {
-                                  console.log(
-                                    `Got new peer ${msg.peer}. Current`,
-                                    p
-                                  );
-                                  return [...p, msg.peer];
-                                });
-                                break;
-                              case "peerlist":
-                                setPeers(msg.peers);
-                                break;
-                              case "updategame":
-                                setGame(msg.game);
-                                setReady(true);
-                                break;
-                              default:
-                                break;
-                            }
-                          });
-
-                          conn.on("open", () => {
-                            console.log("Opened new conn!");
-                            if (!isHost)
-                              sendMessage(conn, {
-                                type: "newpeer",
-                                peer: name,
-                              });
-                          });
                         });
                       });
                     }}
@@ -165,46 +177,8 @@ function App() {
                       const peer = new Peer();
                       peer.on("open", (id) => {
                         console.log("I have ID", id);
-                        const conn = peer.connect(sessionId);
+                        const conn = peer.connect(sessionId.trim());
                         setConnections((cs) => [...cs, conn]);
-
-                        conn.on("data", (data) => {
-                          const msg: Message = recvMessage(data);
-                          console.log("Got data", msg);
-                          switch (msg.type) {
-                            case "newpeer":
-                              setPeers((p) => {
-                                console.log(
-                                  `Got new peer ${msg.peer}. Current`,
-                                  p
-                                );
-                                return [...p, msg.peer];
-                              });
-                              break;
-                            case "peerlist":
-                              setPeers(msg.peers);
-                              break;
-                            case "updategame":
-                              if (isHost) {
-                                setGame(msg.game);
-                              } else {
-                                setLocalGame(msg.game);
-                              }
-                              setReady(true);
-                              break;
-                            default:
-                              break;
-                          }
-                        });
-
-                        conn.on("open", () => {
-                          console.log("Opened new conn!");
-                          if (!isHost)
-                            sendMessage(conn, {
-                              type: "newpeer",
-                              peer: name,
-                            });
-                        });
                       });
                     }}
                   >
