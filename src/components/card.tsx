@@ -1,4 +1,4 @@
-import { Card as GameCard } from "./game/types";
+import { Card as GameCard } from "../game/types";
 
 export const Card = ({
   card,

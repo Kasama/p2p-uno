@@ -55,6 +55,7 @@ const defaultConfig: Config = {
   plusTwosStackWithFours: true,
   plusTwoSkip: false,
   plusFourSkip: true,
+  unoPenalty: 5,
 };
 
 export const makeConfig: (config: GameConfig) => Config = (config) => ({
@@ -87,6 +88,7 @@ export const newGame: (gameConfig?: GameConfig) => Game = (gameConfig = {}) => {
     currentDraws: 0,
     currentPot: [],
     winner: undefined,
+    unclaimedUno: undefined,
     ...config,
   };
 };
@@ -163,12 +165,35 @@ export const playCardFromHand: (
         idx === playerIndex ? { ...p, cards: hand } : p
       ),
       winner: hand.length === 0 ? game.players[playerIndex] : undefined,
+      unclaimedUno: hand.length === 1 ? playerIndex : undefined,
       ...nextPlayer(game),
       ...cardEffect(game, card, hand),
     };
     return newGame;
   }
   return game;
+};
+
+export const claimUno: (game: Game, playerIndex: number) => Game = (
+  game,
+  claimingPlayerIndex
+) => {
+  if (game.unclaimedUno === undefined) return game;
+
+  const [deck, cards] = takeCard(game.deck, game.unoPenalty);
+  return game.unclaimedUno !== claimingPlayerIndex
+    ? {
+        ...game,
+        deck,
+        players: game.players.map((p, i) =>
+          i === game.unclaimedUno ? { ...p, cards: [...p.cards, ...cards] } : p
+        ),
+        unclaimedUno: undefined,
+      }
+    : {
+        ...game,
+        unclaimedUno: undefined,
+      };
 };
 
 export const drawCard: (game: Game, playerIndex: number) => Game = (
@@ -216,9 +241,13 @@ export const cardEffect: (
         ...nextPlayer(game, 2),
       };
     case "reverse":
+      const newDirection = flipDirection(game.direction);
       return {
-        direction: flipDirection(game.direction),
-        ...nextPlayer({ ...game, direction: flipDirection(game.direction) }),
+        direction: newDirection,
+        ...nextPlayer(
+          { ...game, direction: newDirection },
+          game.players.length === 2 ? 2 : 1
+        ),
       };
     case "+4":
     case "+2":

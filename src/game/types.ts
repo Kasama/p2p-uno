@@ -38,6 +38,7 @@ export type Config = {
   plusTwosStackWithFours: boolean;
   plusTwoSkip: boolean;
   plusFourSkip: boolean;
+  unoPenalty: number;
 };
 
 export type Game = {
@@ -49,6 +50,7 @@ export type Game = {
   currentDraws: number;
   currentPot: number[];
   winner: undefined | Player;
+  unclaimedUno: undefined | number;
 } & Config;
 
 export type GameConfig = Partial<Config>;

@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
-import { Card } from "./Card";
-import { COLORS, drawCard, newGame, playCardFromHand } from "./game";
+import { Card } from "./components/card";
+import { claimUno, COLORS, drawCard, newGame, playCardFromHand } from "./game";
 import _ from "lodash";
-import { Color, Game } from "./game/types";
+import { Color, Game, GameConfig } from "./game/types";
 import Peer, { DataConnection } from "peerjs";
 import { Message } from "./communication/types";
 import { recvMessage, sendMessage } from "./communication";
+import { GameConfigurator } from "./components/gameconfigurator";
 
 function App() {
   const [game, setLocalGame] = useState(newGame({}));
@@ -19,6 +20,7 @@ function App() {
   const [name, setName] = useState("");
   const [connections, setConnections] = useState<DataConnection[]>([]);
   const [peers, setPeers] = useState<string[]>([]);
+  const [gameConfig, setGameConfig] = useState<GameConfig>({});
 
   const setGame = useCallback(
     (game: Game) => {
@@ -102,6 +104,7 @@ function App() {
                 <button
                   onClick={() => {
                     const game = newGame({
+                      ...gameConfig,
                       playerNames: peers,
                     });
                     setGame(game);
@@ -110,9 +113,15 @@ function App() {
                 >
                   Start game
                 </button>
+                <GameConfigurator
+                  readOnly={false}
+                  setGameConfig={setGameConfig}
+                />
               </div>
             ) : (
-              <span>Wait for host to start the game</span>
+              (name !== "" || sessionId !== "") && (
+                <span>Wait for host to start the game</span>
+              )
             )}
             <div>
               <ul>
@@ -211,6 +220,7 @@ function App() {
                   </div>
                 )}
                 <div
+                  id="player-hands"
                   style={{ display: "flex", justifyContent: "space-between" }}
                 >
                   {game.players.map((player, playerIndex) => (
@@ -280,6 +290,27 @@ function App() {
                     <span>Deck - {game.deck.length}</span>
                   </div>
                 </div>
+                {game.unclaimedUno !== undefined ? (
+                  <div>
+                    <button
+                      onClick={() => {
+                        setGame(
+                          claimUno(
+                            game,
+                            game.players.findIndex((p) => p.name === name)
+                          )
+                        );
+                      }}
+                    >
+                      {game.players[game.unclaimedUno].name === name
+                        ? "Claim"
+                        : "Contest"}{" "}
+                      UNO!
+                    </button>
+                  </div>
+                ) : (
+                  <></>
+                )}
               </>
             )}
           </>
