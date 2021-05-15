@@ -23,13 +23,27 @@ function App() {
   const [gameConfig, setGameConfig] = useState<GameConfig>({});
 
   const setGame = useCallback(
-    (game: Game) => {
-      if (isHost) {
-        setLocalGame(game);
+    (newGame: Game, currentId: string) => {
+      if (currentId === game.id) {
+        if (isHost) {
+          setLocalGame(newGame);
+        }
+        if (currentId !== newGame.id) {
+          sendMessage(connections, {
+            type: "updategame",
+            game: newGame,
+            currentId,
+          });
+        }
+      } else {
+        console.error(
+          "Ignoring game update",
+          newGame,
+          `meant for an old version ${currentId}. current version is ${game.id}`
+        );
       }
-      sendMessage(connections, { type: "updategame", game });
     },
-    [connections, isHost]
+    [connections, isHost, game]
   );
 
   useEffect(() => {
@@ -65,7 +79,7 @@ function App() {
             break;
           case "updategame":
             if (isHost) {
-              setGame(msg.game);
+              setGame(msg.game, msg.currentId);
             } else {
               setLocalGame(msg.game);
             }
@@ -103,11 +117,11 @@ function App() {
               <div>
                 <button
                   onClick={() => {
-                    const game = newGame({
+                    const freshGame = newGame({
                       ...gameConfig,
                       playerNames: peers,
                     });
-                    setGame(game);
+                    setGame(freshGame, game.id);
                     setReady(true);
                   }}
                 >
@@ -210,7 +224,7 @@ function App() {
                         style={{ backgroundColor: color }}
                         key={color}
                         onClick={() => {
-                          setGame(colorPicker(color));
+                          setGame(colorPicker(color), game.id);
                           setColorPicker(undefined);
                         }}
                       >
@@ -257,7 +271,8 @@ function App() {
                                   });
                                 } else {
                                   setGame(
-                                    playCardFromHand(game, playerIndex, i)
+                                    playCardFromHand(game, playerIndex, i),
+                                    game.id
                                   );
                                 }
                               }}
@@ -270,7 +285,7 @@ function App() {
                         <button
                           onClick={() => {
                             if (player.name === name)
-                              setGame(drawCard(game, playerIndex));
+                              setGame(drawCard(game, playerIndex), game.id);
                           }}
                         >
                           Take card
@@ -298,7 +313,8 @@ function App() {
                           claimUno(
                             game,
                             game.players.findIndex((p) => p.name === name)
-                          )
+                          ),
+                          game.id
                         );
                       }}
                     >

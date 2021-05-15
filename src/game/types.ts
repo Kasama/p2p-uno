@@ -51,6 +51,7 @@ export type Game = {
   currentPot: number[];
   winner: undefined | Player;
   unclaimedUno: undefined | number;
+  id: string;
 } & Config;
 
 export type GameConfig = Partial<Config>;

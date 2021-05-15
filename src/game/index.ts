@@ -8,6 +8,7 @@ import {
   Color,
 } from "./types";
 import _ from "lodash";
+import { v4 as uuid } from "uuid";
 
 /* Randomize array in-place using Durstenfeld shuffle algorithm */
 export function shuffle(array: any[]) {
@@ -71,6 +72,7 @@ export const newGame: (gameConfig?: GameConfig) => Game = (gameConfig = {}) => {
   shuffle(deck);
   const numPlayers = config.playerNames.length;
   return {
+    id: uuid(),
     deck: _.drop(deck, numPlayers * config.startingHandSize + 1),
     discard: [deck[numPlayers * config.startingHandSize]],
     players: config.playerNames.map(
@@ -158,8 +160,7 @@ export const playCardFromHand: (
     if (card.color === "wild") {
       card.assignedColor = wildSelectedColor ?? "green";
     }
-    const newGame: Game = {
-      ...game,
+    return updateGame(game, {
       discard: [card, ...game.discard],
       players: game.players.map((p, idx) =>
         idx === playerIndex ? { ...p, cards: hand } : p
@@ -168,11 +169,15 @@ export const playCardFromHand: (
       unclaimedUno: hand.length === 1 ? playerIndex : undefined,
       ...nextPlayer(game),
       ...cardEffect(game, card, hand),
-    };
-    return newGame;
+    });
   }
   return game;
 };
+
+export const updateGame: (game: Game, update: Partial<Game>) => Game = (
+  game,
+  update
+) => ({ ...game, ...update, id: uuid() });
 
 export const claimUno: (game: Game, playerIndex: number) => Game = (
   game,
@@ -182,18 +187,16 @@ export const claimUno: (game: Game, playerIndex: number) => Game = (
 
   const [deck, cards] = takeCard(game.deck, game.unoPenalty);
   return game.unclaimedUno !== claimingPlayerIndex
-    ? {
-        ...game,
+    ? updateGame(game, {
         deck,
         players: game.players.map((p, i) =>
           i === game.unclaimedUno ? { ...p, cards: [...p.cards, ...cards] } : p
         ),
         unclaimedUno: undefined,
-      }
-    : {
-        ...game,
+      })
+    : updateGame(game, {
         unclaimedUno: undefined,
-      };
+      });
 };
 
 export const drawCard: (game: Game, playerIndex: number) => Game = (
@@ -203,14 +206,13 @@ export const drawCard: (game: Game, playerIndex: number) => Game = (
   if (game.currentPlayer !== playerIndex) return game;
   const [deck, cards] = takeCard(game.deck);
   if (cards.length > 0) {
-    const newGame = {
-      ...game,
+    const newGame = updateGame(game, {
       deck,
       players: game.players.map((p, i) =>
         i === playerIndex ? { ...p, cards: [...p.cards, ...cards] } : p
       ),
       currentDraws: game.currentDraws + 1,
-    };
+    });
     const topCard = _.first(game.discard);
     if (
       game.maxDraws >= 1 &&
@@ -219,10 +221,7 @@ export const drawCard: (game: Game, playerIndex: number) => Game = (
         (card) => topCard && !isValidPlay(game, topCard, card)
       )
     ) {
-      return {
-        ...newGame,
-        ...nextPlayer(game),
-      };
+      return updateGame(newGame, nextPlayer(game));
     } else {
       return newGame;
     }
@@ -245,7 +244,7 @@ export const cardEffect: (
       return {
         direction: newDirection,
         ...nextPlayer(
-          { ...game, direction: newDirection },
+          updateGame(game, { direction: newDirection }),
           game.players.length === 2 ? 2 : 1
         ),
       };

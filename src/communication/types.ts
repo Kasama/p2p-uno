@@ -11,5 +11,6 @@ export type Message =
     }
   | {
       type: "updategame";
+      currentId: string;
       game: Game;
     };
