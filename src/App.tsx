@@ -214,7 +214,22 @@ function App() {
         ) : (
           <>
             {game.winner ? (
-              <span>We have a winner! Congrats {game.winner.name}</span>
+              <>
+                <span>We have a winner! Congrats {game.winner.name}</span>
+                {isHost && (
+                  <button
+                    onClick={() => {
+                      setGame(
+                        newGame({ ...gameConfig, playerNames: peers }),
+                        game.id
+                      );
+                      setReady(true);
+                    }}
+                  >
+                    Restart Game
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 {colorPicker && (
@@ -298,15 +313,21 @@ function App() {
                     {<Card card={_.first(game.discard)} />}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span>
-                      POT: {JSON.stringify(game.currentPot)} ={" "}
-                      {_.sum(game.currentPot)}
-                    </span>
-                    <span>Deck - {game.deck.length}</span>
+                    <span>Deck - {game.deck.length} cards</span>
                   </div>
                 </div>
                 {game.unclaimedUno !== undefined ? (
-                  <div>
+                  <div
+                    style={
+                      game.players[game.unclaimedUno].name === name
+                        ? {}
+                        : {
+                            position: "absolute",
+                            top: `${100 * Math.random()}%`,
+                            left: `${100 * Math.random()}%`,
+                          }
+                    }
+                  >
                     <button
                       onClick={() => {
                         setGame(
