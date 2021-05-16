@@ -57,6 +57,7 @@ const defaultConfig: Config = {
   plusTwoSkip: false,
   plusFourSkip: true,
   unoPenalty: 5,
+  jumpIn: false,
 };
 
 export const makeConfig: (config: GameConfig) => Config = (config) => ({
@@ -71,7 +72,7 @@ export const newGame: (gameConfig?: GameConfig) => Game = (gameConfig = {}) => {
   const deck: Card[] = _.range(config.numDecks).map(newDeck).flat();
   shuffle(deck);
   const numPlayers = config.playerNames.length;
-  return {
+  let game: Game = {
     id: uuid(),
     deck: _.drop(deck, numPlayers * config.startingHandSize + 1),
     discard: [deck[numPlayers * config.startingHandSize]],
@@ -93,6 +94,18 @@ export const newGame: (gameConfig?: GameConfig) => Game = (gameConfig = {}) => {
     unclaimedUno: undefined,
     ...config,
   };
+
+  while (SPECIAL_FACES.includes(_.first(game.discard)?.face ?? "")) {
+    const [card, newDeck] = takeCard(game.deck);
+    const d = [...newDeck, ...game.discard];
+    shuffle(d);
+    game = updateGame(game, {
+      discard: card,
+      deck: d,
+    });
+  }
+
+  return game;
 };
 
 export const flipDirection: (direction: Direction) => Direction = (direction) =>
@@ -117,21 +130,21 @@ export const takeCard: (
 export const isValidPlay: (
   game: Game,
   topCard: Card,
-  playedCard: Card
-) => boolean = (game, topCard, playedCard) =>
-  (game.currentPot.length > 0 && // there is a pot, so only reactions are valid
-    (playedCard.face === "+2" || playedCard.face === "+4") && // reactions can only be +2 and +4
-    (playedCard.face === topCard.face || // reactions of twos on twos and fours on fours is always allowed
-      (game.plusTwosStackWithFours &&
-        (playedCard.color === "wild" || // four on twos is allowed with rule
-          (topCard.color === "wild" && // twos on fours is allowed with rule if their colors match
-            playedCard.color === topCard.assignedColor))))) ||
-  (game.currentPot.length <= 0 && // there is no pot, any card is valid
-    (topCard.face === playedCard.face ||
-      topCard.color === playedCard.color ||
-      (topCard.color === "wild" && // topCard is a wildcard, use its assignedColor
-        topCard.assignedColor === playedCard.color) ||
-      playedCard.color === "wild")); // wild cards can always be played
+  playedCard: Card,
+  playerIndex: number
+) => boolean = (game, topCard, playedCard, playerIndex) =>
+  (game.currentPlayer === playerIndex &&
+    ((game.currentPot.length > 0 && // there is a pot, so only reactions are valid
+      canStackPot(game, topCard, playedCard)) ||
+      (game.currentPot.length <= 0 && // there is no pot, any card is valid
+        (topCard.face === playedCard.face ||
+          topCard.color === playedCard.color ||
+          (topCard.color === "wild" && // topCard is a wildcard, use its assignedColor
+            topCard.assignedColor === playedCard.color) ||
+          playedCard.color === "wild")))) || // wild cards can always be played
+  (game.jumpIn &&
+    playedCard.face === topCard.face &&
+    playedCard.color === topCard.color);
 
 export const canStackPot: (
   game: Game,
@@ -151,12 +164,12 @@ export const playCardFromHand: (
   cardIndex: number,
   wildSelectedColor?: Color
 ) => Game = (game, playerIndex, cardIndex, wildSelectedColor) => {
-  if (game.currentPlayer !== playerIndex) return game;
   const player = game.players[playerIndex];
   const [hand, cards] = takeCard(player.cards, 1, cardIndex);
   const card = _.first(cards);
   const topCard = _.first(game.discard);
-  if (card && topCard && isValidPlay(game, topCard, card)) {
+  if (card && topCard && isValidPlay(game, topCard, card, playerIndex)) {
+    console.log("I can play this!");
     if (card.color === "wild") {
       card.assignedColor = wildSelectedColor ?? "green";
     }
@@ -167,7 +180,7 @@ export const playCardFromHand: (
       ),
       winner: hand.length === 0 ? game.players[playerIndex] : undefined,
       unclaimedUno: hand.length === 1 ? playerIndex : undefined,
-      ...nextPlayer(game),
+      ...nextPlayer(game, 1, playerIndex),
       ...cardEffect(game, card, hand),
     });
   }
@@ -218,7 +231,7 @@ export const drawCard: (game: Game, playerIndex: number) => Game = (
       game.maxDraws >= 1 &&
       newGame.currentDraws >= game.maxDraws &&
       newGame.players[playerIndex].cards.every(
-        (card) => topCard && !isValidPlay(game, topCard, card)
+        (card) => topCard && !isValidPlay(game, topCard, card, playerIndex)
       )
     ) {
       return updateGame(newGame, nextPlayer(game));
@@ -229,11 +242,33 @@ export const drawCard: (game: Game, playerIndex: number) => Game = (
   return game;
 };
 
+export const acceptPunishment: (game: Game, playerIndex: number) => Game = (
+  game,
+  playerIndex
+) => {
+  const [deck, cards] = takeCard(game.deck, _.sum(game.currentPot), 0);
+  return updateGame(game, {
+    deck,
+    players: game.players.map((p, i) => {
+      if (i === playerIndex) {
+        return { ...p, cards: [...p.cards, ...cards] };
+      } else {
+        return p;
+      }
+    }),
+    currentPot: [],
+    ...((game.plusFourSkip && game.currentPot.find((val) => val === 4)) ||
+    (game.plusTwoSkip && game.currentPot.find((val) => val === 2))
+      ? nextPlayer(game)
+      : {}),
+  });
+};
+
 export const cardEffect: (
   game: Game,
   card: Card,
   afterHand: Card[]
-) => Partial<Game> = (game, card, afterHand) => {
+) => Partial<Game> = (game, card, _) => {
   switch (card.face) {
     case "skip":
       return {
@@ -250,41 +285,9 @@ export const cardEffect: (
       };
     case "+4":
     case "+2":
-      const victimIndex = nextPlayer(game).currentPlayer;
-      const victim = game.players[victimIndex];
-      const victimCanStack = victim.cards.some((c) =>
-        canStackPot(game, card, c)
-      );
-      if (victimCanStack) {
-        return {
-          currentPot: [...game.currentPot, card.face === "+2" ? 2 : 4],
-        };
-      } else {
-        const [deck, cards] = takeCard(
-          game.deck,
-          _.sum(game.currentPot) + (card.face === "+2" ? 2 : 4),
-          0
-        );
-        return {
-          deck,
-          players: game.players.map((p, i) => {
-            if (i === victimIndex) {
-              return { ...p, cards: [...p.cards, ...cards] };
-            } else if (i === game.currentPlayer) {
-              return { ...p, cards: afterHand };
-            } else {
-              return p;
-            }
-          }),
-          currentPot: [],
-          ...((card.face === "+2" && game.plusTwoSkip) ||
-          (card.face === "+4" && game.plusFourSkip) ||
-          (game.plusFourSkip && game.currentPot.find((val) => val === 4)) ||
-          (game.plusTwoSkip && game.currentPot.find((val) => val === 2))
-            ? nextPlayer(game, 2)
-            : {}),
-        };
-      }
+      return {
+        currentPot: [...game.currentPot, card.face === "+2" ? 2 : 4],
+      };
     default:
       return {};
   }
@@ -292,10 +295,15 @@ export const cardEffect: (
 
 export const nextPlayer: (
   game: Game,
-  offset?: number
-) => Pick<Game, "currentPlayer" | "currentDraws"> = (game, offset = 1) => ({
+  offset?: number,
+  currentPlayer?: number
+) => Pick<Game, "currentPlayer" | "currentDraws"> = (
+  game,
+  offset = 1,
+  currentPlayer = game.currentPlayer
+) => ({
   currentPlayer: mod(
-    game.currentPlayer + (game.direction === "forward" ? 1 : -1) * offset,
+    currentPlayer + (game.direction === "forward" ? 1 : -1) * offset,
     game.players.length
   ),
   currentDraws: 0,

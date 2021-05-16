@@ -39,6 +39,7 @@ export type Config = {
   plusTwoSkip: boolean;
   plusFourSkip: boolean;
   unoPenalty: number;
+  jumpIn: boolean;
 };
 
 export type Game = {

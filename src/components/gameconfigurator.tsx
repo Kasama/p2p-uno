@@ -64,6 +64,12 @@ export const GameConfigurator = ({ readOnly, setGameConfig }: Props) => {
         description:
           "The amount of cards used to penalize who doesn't call UNO on time",
       },
+      jumpIn: {
+        type: "boolean",
+        default: false,
+        description:
+          "Wether a player can jump in front of other when they have the exact same card that is in the pile",
+      },
     }
   );
 

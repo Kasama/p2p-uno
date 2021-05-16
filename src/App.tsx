@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
 import { Card } from "./components/card";
-import { claimUno, COLORS, drawCard, newGame, playCardFromHand } from "./game";
+import {
+  acceptPunishment,
+  claimUno,
+  COLORS,
+  drawCard,
+  newGame,
+  playCardFromHand,
+} from "./game";
 import _ from "lodash";
 import { Color, Game, GameConfig } from "./game/types";
 import Peer, { DataConnection } from "peerjs";
@@ -232,6 +239,13 @@ function App() {
               </>
             ) : (
               <>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span>Top card</span>
+                  {<Card card={_.first(game.discard)} />}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span>Deck - {game.deck.length} cards</span>
+                </div>
                 {colorPicker && (
                   <div>
                     {COLORS.map((color) => (
@@ -250,12 +264,20 @@ function App() {
                 )}
                 <div
                   id="player-hands"
-                  style={{ display: "flex", justifyContent: "space-between" }}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    width: "70%",
+                  }}
                 >
                   {game.players.map((player, playerIndex) => (
                     <div
                       key={player.name}
-                      style={{ display: "flex", flexDirection: "column" }}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        padding: "5px",
+                      }}
                     >
                       <span
                         style={{
@@ -267,10 +289,84 @@ function App() {
                       >
                         {player.name}
                       </span>
-                      <span>{player.cards.length}</span>
-                      <ul>
+                      <span>{player.cards.length} cards</span>
+                      {player.name === name &&
+                        (game.currentPot.length === 0 ||
+                        game.currentPlayer !== playerIndex ? (
+                          <button
+                            disabled={game.currentPlayer !== playerIndex}
+                            onClick={() => {
+                              if (player.name === name)
+                                setGame(drawCard(game, playerIndex), game.id);
+                            }}
+                          >
+                            Draw card
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              if (player.name === name)
+                                setGame(
+                                  acceptPunishment(game, playerIndex),
+                                  game.id
+                                );
+                            }}
+                          >
+                            Accept punishment (+{_.sum(game.currentPot)})
+                          </button>
+                        ))}
+                      {game.unclaimedUno !== undefined &&
+                      player.name === name ? (
+                        <div
+                          style={
+                            game.players[game.unclaimedUno].name === name
+                              ? {}
+                              : {
+                                  position: "absolute",
+                                  top: `${90 * Math.random()}%`,
+                                  left: `${90 * Math.random()}%`,
+                                }
+                          }
+                        >
+                          <button
+                            onClick={() => {
+                              setGame(
+                                claimUno(
+                                  game,
+                                  game.players.findIndex((p) => p.name === name)
+                                ),
+                                game.id
+                              );
+                            }}
+                          >
+                            {game.players[game.unclaimedUno].name === name
+                              ? "Claim"
+                              : "Contest"}{" "}
+                            UNO!
+                          </button>
+                        </div>
+                      ) : (
+                        <></>
+                      )}
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          width: "100%",
+                          alignItems: "stretch",
+                          alignContent: "stretch",
+                          justifyContent: "space-between",
+                        }}
+                      >
                         {player.cards.map((c, i) => (
-                          <div key={i} style={{ margin: "3px" }}>
+                          <div
+                            key={i}
+                            style={{
+                              margin: "3px",
+                              cursor:
+                                player.name === name ? "pointer" : "default",
+                            }}
+                          >
                             <Card
                               hidden={player.name !== name}
                               key={i}
@@ -295,59 +391,10 @@ function App() {
                             />
                           </div>
                         ))}
-                      </ul>
-                      {player.name === name && (
-                        <button
-                          onClick={() => {
-                            if (player.name === name)
-                              setGame(drawCard(game, playerIndex), game.id);
-                          }}
-                        >
-                          Take card
-                        </button>
-                      )}
+                      </div>
                     </div>
                   ))}
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span>Top card</span>
-                    {<Card card={_.first(game.discard)} />}
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column" }}>
-                    <span>Deck - {game.deck.length} cards</span>
-                  </div>
                 </div>
-                {game.unclaimedUno !== undefined ? (
-                  <div
-                    style={
-                      game.players[game.unclaimedUno].name === name
-                        ? {}
-                        : {
-                            position: "absolute",
-                            top: `${100 * Math.random()}%`,
-                            left: `${100 * Math.random()}%`,
-                          }
-                    }
-                  >
-                    <button
-                      onClick={() => {
-                        setGame(
-                          claimUno(
-                            game,
-                            game.players.findIndex((p) => p.name === name)
-                          ),
-                          game.id
-                        );
-                      }}
-                    >
-                      {game.players[game.unclaimedUno].name === name
-                        ? "Claim"
-                        : "Contest"}{" "}
-                      UNO!
-                    </button>
-                  </div>
-                ) : (
-                  <></>
-                )}
               </>
             )}
           </>
